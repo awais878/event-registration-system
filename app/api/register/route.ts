@@ -1,17 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = new Resend(
-  process.env.RESEND_API_KEY
-);
-
-export async function POST(
-  req: Request
-) {
+export async function POST(req: Request) {
   try {
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const {
       name,
@@ -53,160 +46,109 @@ export async function POST(
           studentId,
           course,
           year,
+          event,
         },
       });
 
-    // Event timings
-    const eventTimings: Record<
+    // Event timing
+    const eventTimes: Record<
       string,
       string
     > = {
-      "Debug Event":
-        "10:00 AM",
-      Hackathon:
-        "11:00 AM",
-      "Startup Pitch":
-        "2:00 PM",
+      "Debug Event": "10:00 AM",
+      Hackathon: "12:00 PM",
+      "Pitch Startup Thing":
+        "3:00 PM",
     };
 
-    const eventTime =
-      eventTimings[event] ??
-      "10:00 AM";
-
-    // SEND EMAIL
-    const emailResponse =
-      await resend.emails.send({
-        from:
-          "Event Desk <onboarding@resend.dev>",
-
-        // always send to YOUR gmail
-        to: [
-          "nawabawais41@gmail.com",
-        ],
-
-        // unique subject every time
-        subject: `URGENT TEST CAPS EVENT ${Date.now()}`,
-
-        // text fallback
-        text: `
-Hi ${name},
-
-You have successfully registered for ${event}
-
-Event Time:
-${eventTime}
-
-Venue:
-Main Auditorium
-
-WiFi Details:
-Network: Auditorium WiFi
-Password: EVENT2026
-
-See you at the event!
-        `,
-
-        // pretty html email
-        html: `
-        <div style="
-          font-family: Arial, sans-serif;
-          max-width: 600px;
-          margin: auto;
-          padding: 24px;
-          color: #1f2937;
-          background: #ffffff;
-        ">
-
-          <h1 style="
-            color:#8B1E2D;
-            margin-bottom:8px;
-          ">
-            Registration Successful 🎉
-          </h1>
-
-          <p style="
-            font-size:16px;
-          ">
-            Hi <strong>${name}</strong>,
-          </p>
-
-          <p style="
-            font-size:16px;
-            line-height:1.6;
-          ">
-            You have successfully
-            registered for:
-          </p>
-
-          <div style="
-            background:#f8f8f8;
-            border-radius:16px;
-            padding:20px;
-            margin:24px 0;
-          ">
-            <h2>
-              Event Details
-            </h2>
-
-            <p>
-              <strong>
-                Event:
-              </strong>
-              ${event}
-            </p>
-
-            <p>
-              <strong>
-                Venue:
-              </strong>
-              Main Auditorium
-            </p>
-
-            <p>
-              <strong>
-                Time:
-              </strong>
-              ${eventTime}
-            </p>
-          </div>
-
-          <div style="
-            background:#f8f8f8;
-            border-radius:16px;
-            padding:20px;
-            margin:24px 0;
-          ">
-            <h2>
-              WiFi Details
-            </h2>
-
-            <p>
-              <strong>
-                Network:
-              </strong>
-              Auditorium WiFi
-            </p>
-
-            <p>
-              <strong>
-                Password:
-              </strong>
-              EVENT2026
-            </p>
-          </div>
-
-          <p>
-            See you at the event!
-          </p>
-
-        </div>
-        `,
+    // Gmail transporter
+    const transporter =
+      nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user:
+            process.env.EMAIL_USER,
+          pass:
+            process.env.EMAIL_PASS,
+        },
       });
 
-    console.log(
-      "EMAIL RESPONSE:",
-      emailResponse
-    );
+    // Send email
+    await transporter.sendMail({
+      from: `"CAPS Tech Tank" <${process.env.EMAIL_USER}>`,
+
+      to: email,
+
+      subject:
+        "Event Registration Successful",
+
+      html: `
+      <div style="
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: auto;
+        padding: 24px;
+      ">
+        <h1 style="
+          color:#991b1b;
+        ">
+          Registration Successful 🎉
+        </h1>
+
+        <p>
+          Hi <strong>${name}</strong>,
+        </p>
+
+        <p>
+          You have successfully
+          registered for:
+        </p>
+
+        <div style="
+          background:#f5f5f5;
+          padding:20px;
+          border-radius:12px;
+          margin:20px 0;
+        ">
+          <p>
+            <strong>Event:</strong>
+            ${event}
+          </p>
+
+          <p>
+            <strong>Start Time:</strong>
+            ${eventTimes[event]
+        }
+          </p>
+        </div>
+
+        <div style="
+          background:#f5f5f5;
+          padding:20px;
+          border-radius:12px;
+          margin:20px 0;
+        ">
+          <h3>
+            WiFi Details
+          </h3>
+
+          <p>
+            <strong>Network:</strong>
+            Auditorium WiFi
+          </p>
+
+          <p>
+            <strong>Password:</strong>
+            EVENT2026
+          </p>
+        </div>
+
+        <p>
+          See you at the event!
+        </p>
+      </div>
+      `,
+    });
 
     return NextResponse.json({
       success: true,
@@ -214,10 +156,7 @@ See you at the event!
     });
 
   } catch (error) {
-    console.error(
-      "REGISTRATION ERROR:",
-      error
-    );
+    console.error(error);
 
     return NextResponse.json(
       {
